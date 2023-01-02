@@ -6,6 +6,15 @@ import {
   ReactiveFormsModule,
 } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
+import { ComponentStore } from '@ngrx/component-store';
+import { LetModule } from '@ngrx/component';
+import { Observable, tap, withLatestFrom } from 'rxjs';
+
+interface MultiSelectState {
+  selectedItems: unknown[];
+  searchTerm: string;
+  options: unknown[];
+}
 
 @Component({
   selector: 'chaapaar-select-test-multi-select-searchable',
@@ -16,20 +25,27 @@ import { MatSelectModule } from '@angular/material/select';
       multi: true,
       useExisting: MultiSelectSearchableComponent,
     },
+    ComponentStore,
   ],
-  imports: [CommonModule, MatSelectModule, ReactiveFormsModule],
+  imports: [CommonModule, MatSelectModule, ReactiveFormsModule, LetModule],
   template: `
-    <mat-form-field appearance="fill">
-      <mat-label>{{ placeholder }}</mat-label>
+    <mat-form-field
+      appearance="fill"
+      *ngrxLet="{
+        selectedItems: selectedItems$,
+        filteredOptions: filteredOptions$
+      } as vm"
+    >
+      <mat-label>{{ label }}</mat-label>
       <mat-select
-        (valueChange)="selectItem($event)"
-        [value]="selectedItems"
+        (valueChange)="updateItems($event)"
+        [value]="vm.selectedItems"
         multiple
       >
         <mat-select-trigger>
           <div class="flex flex-wrap gap-2">
             <span
-              *ngFor="let item of selectedItems"
+              *ngFor="let item of vm.selectedItems"
               class=" px-3 rounded-md bg-gray-300 text-gray-800 flex items-center gap-1"
             >
               <p class="no-margin">{{ item }}</p>
@@ -55,9 +71,11 @@ import { MatSelectModule } from '@angular/material/select';
             </span>
           </div>
         </mat-select-trigger>
-        <mat-option *ngFor="let option of selectOptions" [value]="option">{{
-          option
-        }}</mat-option>
+        <mat-option
+          *ngFor="let option of vm.filteredOptions"
+          [value]="option"
+          >{{ option }}</mat-option
+        >
       </mat-select>
     </mat-form-field>
   `,
@@ -71,24 +89,66 @@ import { MatSelectModule } from '@angular/material/select';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MultiSelectSearchableComponent implements ControlValueAccessor {
-  selectedItems: unknown[] = [1, 2, 3, 4];
+  selectedItems$ = this.componentStore.select((state) => state.selectedItems);
 
-  @Input() selectOptions: unknown[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  private searchTerm$ = this.componentStore.select((state) => state.searchTerm);
+  private options$ = this.componentStore.select((state) => state.options);
 
-  @Input() placeholder = 'numbers';
+  filteredOptions$ = this.componentStore.select(
+    this.options$,
+    this.searchTerm$,
+    (options, term) => options
+    // (items, term) => items.filter((item) => term.includes('' + item))
+  );
 
-  log = (a: unknown) => console.log(a);
-
-  selectItem(value: unknown[]) {
-    this.selectedItems = value;
-    this.onChange(this.selectedItems);
-    this.onTouched();
+  @Input() set selectOptions(options: unknown[]) {
+    this.componentStore.patchState({
+      options,
+    });
   }
 
-  deleteItem(value: unknown) {
-    this.selectedItems = this.selectedItems.filter((item) => item !== value);
-    this.onChange(this.selectedItems);
+  @Input() label = 'test';
+
+  constructor(private componentStore: ComponentStore<MultiSelectState>) {
+    this.componentStore.setState({
+      selectedItems: [],
+      searchTerm: '',
+      options: [],
+    });
   }
+
+  ngOnInit() {
+    this.selectOptions = ['one', 'two', 'three', 'four'];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/member-ordering
+  updateItems = this.componentStore.effect(
+    (trigger$: Observable<unknown[]>) => {
+      return trigger$.pipe(
+        tap((selectedItems) => {
+          this.componentStore.patchState({ selectedItems });
+          this.onChange(selectedItems);
+          this.onTouched();
+        })
+      );
+    }
+  );
+
+  // eslint-disable-next-line @typescript-eslint/member-ordering
+  deleteItem = this.componentStore.effect((trigger$: Observable<unknown>) => {
+    return trigger$.pipe(
+      withLatestFrom(this.selectedItems$),
+      tap(([itemToDelete, selectedItems]) => {
+        this.componentStore.patchState({
+          selectedItems: [
+            ...selectedItems.filter((item) => item !== itemToDelete),
+          ],
+        });
+        this.onChange(selectedItems);
+        this.onTouched();
+      })
+    );
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   onTouched = () => {};
@@ -103,7 +163,7 @@ export class MultiSelectSearchableComponent implements ControlValueAccessor {
     this.onTouched = fn;
   }
 
-  writeValue(obj: any): void {
-    this.selectedItems = obj;
+  writeValue(value: any): void {
+    this.componentStore.patchState({ selectedItems: value });
   }
 }
