@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
   selector: 'chaapaar-select-test-multi-select-searchable',
   standalone: true,
   imports: [CommonModule],
-  template: ` <p>multi-select-searchable works!</p> `,
+  template: ` <h1 class="text-4xl font-bold underline">Hello world!!</h1> `,
   styles: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
