@@ -1,1 +1,1 @@
-export * from './lib/multi-select-searchable.module';
+export * from './lib/multi-select-searchable.component';
