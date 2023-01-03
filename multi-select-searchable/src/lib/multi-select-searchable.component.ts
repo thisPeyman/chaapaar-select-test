@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ControlValueAccessor,
+  FormsModule,
   NG_VALUE_ACCESSOR,
-  ReactiveFormsModule,
 } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { ComponentStore } from '@ngrx/component-store';
 import { LetModule } from '@ngrx/component';
 import { Observable, tap, withLatestFrom } from 'rxjs';
+import { NgxMatSelectSearchModule } from 'ngx-mat-select-search';
 
 interface MultiSelectState {
   selectedItems: unknown[];
@@ -27,7 +28,13 @@ interface MultiSelectState {
     },
     ComponentStore,
   ],
-  imports: [CommonModule, MatSelectModule, ReactiveFormsModule, LetModule],
+  imports: [
+    CommonModule,
+    MatSelectModule,
+    FormsModule,
+    LetModule,
+    NgxMatSelectSearchModule,
+  ],
   template: `
     <mat-form-field
       appearance="fill"
@@ -71,6 +78,13 @@ interface MultiSelectState {
             </span>
           </div>
         </mat-select-trigger>
+        <mat-option>
+          <ngx-mat-select-search
+            placeholderLabel="Search"
+            ngModel
+            (ngModelChange)="setSearchTerm($event)"
+          ></ngx-mat-select-search>
+        </mat-option>
         <mat-option
           *ngFor="let option of vm.filteredOptions"
           [value]="option"
@@ -97,8 +111,12 @@ export class MultiSelectSearchableComponent implements ControlValueAccessor {
   filteredOptions$ = this.componentStore.select(
     this.options$,
     this.searchTerm$,
-    (options, term) => options
-    // (items, term) => items.filter((item) => term.includes('' + item))
+    (options, term) =>
+      options.filter((option) =>
+        (option as string)
+          .toLocaleLowerCase()
+          .includes(term.toLocaleLowerCase())
+      )
   );
 
   @Input() set selectOptions(options: unknown[]) {
@@ -107,7 +125,7 @@ export class MultiSelectSearchableComponent implements ControlValueAccessor {
     });
   }
 
-  @Input() label = 'test';
+  @Input() label = '';
 
   constructor(private componentStore: ComponentStore<MultiSelectState>) {
     this.componentStore.setState({
@@ -115,10 +133,6 @@ export class MultiSelectSearchableComponent implements ControlValueAccessor {
       searchTerm: '',
       options: [],
     });
-  }
-
-  ngOnInit() {
-    this.selectOptions = ['one', 'two', 'three', 'four'];
   }
 
   // eslint-disable-next-line @typescript-eslint/member-ordering
@@ -149,6 +163,10 @@ export class MultiSelectSearchableComponent implements ControlValueAccessor {
       })
     );
   });
+
+  setSearchTerm(searchTerm: string) {
+    this.componentStore.patchState({ searchTerm });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   onTouched = () => {};
