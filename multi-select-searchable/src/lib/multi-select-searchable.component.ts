@@ -111,12 +111,16 @@ export class MultiSelectSearchableComponent implements ControlValueAccessor {
   filteredOptions$ = this.componentStore.select(
     this.options$,
     this.searchTerm$,
-    (options, term) =>
-      options.filter((option) =>
-        (option as string)
-          .toLocaleLowerCase()
-          .includes(term.toLocaleLowerCase())
-      )
+    this.selectedItems$,
+    (options, term, selectedItems) =>
+      this.uniq([
+        ...options.filter((option) =>
+          (option as string)
+            .toLocaleLowerCase()
+            .includes(term.toLocaleLowerCase())
+        ),
+        ...selectedItems,
+      ])
   );
 
   @Input() set selectOptions(options: unknown[]) {
@@ -184,4 +188,6 @@ export class MultiSelectSearchableComponent implements ControlValueAccessor {
   writeValue(value: any): void {
     this.componentStore.patchState({ selectedItems: value });
   }
+
+  private uniq = (a: unknown[]) => [...new Set(a)];
 }
